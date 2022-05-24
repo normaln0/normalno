@@ -30,7 +30,7 @@ ch_server - сервер Clickhouse
 
 ### Схема:
 
-![Schema](Schema.jpg)
+![Schema](schema.jpg)
 
 По порту 8123 в DBeaver был подключен Clickhouse и были созданы таблицы:
 
