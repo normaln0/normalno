@@ -1,0 +1,6 @@
+boto3
+pandas
+pandahouse
+clickhouse-driver
+datetime
+python-dotenv
