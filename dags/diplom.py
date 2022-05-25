@@ -1,48 +1,26 @@
 
 """
-1. AWS API ключи необходимо убрать из общего доступа, нужно иди Variables , или подгружать ,через локальный env. 
-В таком виде хранить их небезопасно, как и данные доступа к БД
+for files in list_:
+        try:
+            df = pd.read_csv(DATA + files)
+        except:
+            continue
+не очень понятно, т.е. если файл не прочтется, то мы продолжаем цикл? а в чем суть исключения? Может лучше принт добавить какой? Это во всех функциях репортов
 
----- Добавил переменные окружения, убрал данные из общего доступа. ----------
+------------- понял, поправил, добавил except FileNotFoundError: print('File not found'). Согласен так логичнее ------------------------------------
 
-2. Если пользуетесь docker-compose для развёртывания, хорошо бы добавить описание как запускается и для чего файлы конфигурации(airflow.cfg, entrypoint.sh). 
-В противном случае, лучше убрать из проекта . Также непонятна папка diplom,возможно при коммите случайно попала
+а example-select.csv это пример датасета?
 
---------- Файлы airflow.cfg, entrypoint.sh убрал. --------------------
---------- папка диплом попала случайно, убрал ----------------
---------- В README добавил описание docker-compose ----------------
+--------------------- example-select.csv это пример функции def example_select()---------------------------------------
+--------------------- Которую я добавил в качестве примера SQL запроса из базы Clickhouse -----------------------------
 
-3. if filename not in list_:
-try:
-client.download_file(Bucket = bucket, Key = filename, Filename = DATA + filename)
-Не очень понятна логика** if not**, возможно наоборот имеется ввиду?
+Добавьте, пожалуйста, в README описание отчетов
 
---------- Нет, тут все правильно, логика (if not in): если такого файла в папке нет - скачать файл. Если такой файл уже есть -continue---------------------------------
---------- Дважды перепроверил - работает
+--------------------- Добавил в самый низ ------------------------
 
-Для более быстрого понимания, добавьте пожалуйста описание аргументов каждой функции , и что она возвращает 
+Впринципе,это все, как поправите, работу приму
 
----------- Описание добавил -------------------
-													
-4. Не очень пока понимаю, при каких условиях размер файлов нулевой будет
-
-for file in list_:
-if len(file) == 0:
-
---------- Да, какая-то чушь, ошибся, поправил -----------------------
-
-5. Данные в clickhouse также можно загрузить путем SQL запросов , как в README написано, неплохо это в dag файле указать, плюс можно отчеты также в репозиторий загрузить
-
-------- Данные и так загружаются в clickhouse, информация есть на скрине. ----------------------
-------- У pandahouse нет возможности INSER тить файлы запросами, только читать https://github.com/kszucs/pandahouse ----------------
-------- сначала я пытался загрузить через ckickhouse-driver, но возникли проблемы с 9000 портом, мой ноутбук отказывается его открывать --------------
-------- много искал информацмию по этому поводу, пишут, что на windows такая проблема существует-----------------
-------- Но, для примера, чтобы показать SQL запросы в коде, я добавил  функцию def example_select() и сохранил в csv файл, который приложил к остальным в папке example
-------- отчеты загрузил -----------------
-
-Также будет здорово, если добавите дизайн-схему проекта , с указанием все сервисов и их интеграции
-
------- Схему добавил в README --------------------------
+------------ Спасибо, недуюсь отмучался) -----------------
 
 """
 
@@ -98,9 +76,9 @@ def check_new_files_from_bucket():
 
         if filename not in list_: # Если файла с таким названием нет в папке 
             try:    
-                  client.download_file(Bucket = bucket, Key = filename, Filename = DATA + filename)   # скачивает файл в папку data                        
-            except:
-                print('Files not found in bucket S3')
+                client.download_file(Bucket = bucket, Key = filename, Filename = DATA + filename)   # скачивает файл в папку data                        
+            except FileNotFoundError:
+                print('File not found')
         else:
             continue
 
@@ -111,8 +89,8 @@ def load_big_file():
     for files in list_: # итерируем все файлы в папке
         try:
             df = pd.read_csv(DATA + files) # читаем новый файл в папке.
-        except:
-            continue
+        except FileNotFoundError:
+            print('File not found')
 
 # перемеиновываем колонки
     df = df.rename(columns={'start station id' : 'start_station_id', 'start station name': 'start_station_name',
@@ -131,8 +109,8 @@ def transform_data_num_of_rides():
     for files in list_: # итерируем все файлы в папке
         try:
             df = pd.read_csv(DATA + files)
-        except:
-            continue
+        except FileNotFoundError:
+            print('File not found')
 
         df['start'] = pd.to_datetime(df['starttime'], format='%Y-%m-%d %H:%M:%S') # преобразовываем в datetime
         df['end'] = pd.to_datetime(df['stoptime'], format='%Y-%m-%d %H:%M:%S') # преобразовываем в datetime
@@ -151,8 +129,8 @@ def transform_data_mean_ride():
     for files in list_:
         try:
             df = pd.read_csv(DATA + files)
-        except:
-            continue
+        except FileNotFoundError:
+            print('File not found')
         
         df['start'] = pd.to_datetime(df['starttime'], format='%Y-%m-%d %H:%M:%S') # преобразовываем в datetime
         df['end'] = pd.to_datetime(df['stoptime'], format='%Y-%m-%d %H:%M:%S') # преобразовываем в datetime
@@ -174,8 +152,8 @@ def transform_data_gender_rides():
     for files in list_:
         try:
             df = pd.read_csv(DATA + files)
-        except:
-            continue
+        except FileNotFoundError:
+            print('File not found')
             
         df['date'] = pd.to_datetime(df['starttime'], format='%Y-%m-%d %H:%M:%S') # преобразовываем в datetime
         df['date'] = df['date'].dt.date # колонку date приводим к формату yyyy--mm--dd
