@@ -27,7 +27,7 @@ scheduler - планировщик;
 
 worker - кластер на котором происходят все процессы;
 
-ch_server - сервер Clickhouse.
+ch_server - сервер Clickhouse (порт 8123).
 
 Команда для сборки:
 
