@@ -1,29 +1,4 @@
 
-"""
-for files in list_:
-        try:
-            df = pd.read_csv(DATA + files)
-        except:
-            continue
-не очень понятно, т.е. если файл не прочтется, то мы продолжаем цикл? а в чем суть исключения? Может лучше принт добавить какой? Это во всех функциях репортов
-
-------------- понял, поправил, добавил except FileNotFoundError: print('File not found'). Согласен так логичнее ------------------------------------
-
-а example-select.csv это пример датасета?
-
---------------------- example-select.csv это пример функции def example_select()---------------------------------------
---------------------- Которую я добавил в качестве примера SQL запроса из базы Clickhouse -----------------------------
-
-Добавьте, пожалуйста, в README описание отчетов
-
---------------------- Добавил в самый низ ------------------------
-
-Впринципе,это все, как поправите, работу приму
-
------------- Спасибо, недуюсь отмучался) -----------------
-
-"""
-
 import datetime as dt
 from datetime import timedelta
 import os
@@ -36,26 +11,27 @@ import boto3
 import pandahouse as ph
 from dotenv import load_dotenv
 
-load_dotenv() # Забираем переменные окружения из файла .env
+load_dotenv() 
 
-HOST = os.getenv("HOST") # мой IP
-ACCSESS_KEY = os.getenv("ACCSESS_KEY") # логин к AWS
-SECRET_KEY = os.getenv("SECRET_KEY") # пароль к AWS
+# environment variables
+HOST = os.getenv("HOST") # IP
+ACCSESS_KEY = os.getenv("ACCSESS_KEY") # AWS S3
+SECRET_KEY = os.getenv("SECRET_KEY") 
 
-# Подключение к Ckickhouse
+# Connection to Ckickhouse
 connection = {'host': 'http://{}:8123'.format(HOST),
                          'database': 'RIDES'}
 
-# Ключ и пароль S3 (connection_bases)
+# AWS S3
 session = boto3.Session( 
          aws_access_key_id=ACCSESS_KEY, 
          aws_secret_access_key=SECRET_KEY)
 
-# Название бакета для загрузки первичных файлов
+
 bucket = 'bucket-project-net-08090'
 new_bucket_name = 'bucket-project-net-0800090'
 filename = ''
-DATA = 'data/' # директория скачинвания файлов
+DATA = 'data/'
 
 default_args = {
     'owner': 'airflow',
@@ -65,64 +41,62 @@ default_args = {
     'retry_delay': timedelta(minutes=1)
 }
 
-# Проверка файлов на бакете S3 и их загрузка на пк.
+# Check files on bucket and download
 def check_new_files_from_bucket():  
-    list_ = os.listdir(DATA)  # Список файлов в папке
+    list_ = os.listdir(DATA) 
     s3 = session.resource('s3')
     my_bucket = s3.Bucket(bucket)
     client = boto3.client('s3', aws_access_key_id=ACCSESS_KEY, aws_secret_access_key=SECRET_KEY)      
-    for file in my_bucket.objects.all(): # Проверяет все файл на бакете
-        filename = file.key   # название файла
+    for file in my_bucket.objects.all(): 
+        filename = file.key  
 
-        if filename not in list_: # Если файла с таким названием нет в папке 
+        if filename not in list_:
             try:    
-                client.download_file(Bucket = bucket, Key = filename, Filename = DATA + filename)   # скачивает файл в папку data                        
-            except FileNotFoundError:
+                client.download_file(Bucket = bucket, Key = filename, Filename = DATA + filename)                     
+            except:
                 print('File not found')
         else:
             continue
 
-# Загрузка основного файла на ckickhouse
+# Load file to ckickhouse
 def load_big_file():
-    list_ = os.listdir(DATA) # Список файлов в папке
+    list_ = os.listdir(DATA)
 
-    for files in list_: # итерируем все файлы в папке
-        try:
-            df = pd.read_csv(DATA + files) # читаем новый файл в папке.
-        except FileNotFoundError:
-            print('File not found')
-
-# перемеиновываем колонки
-    df = df.rename(columns={'start station id' : 'start_station_id', 'start station name': 'start_station_name',
-        'start station latitude': 'start_station_latitude', 'start station longitude':'start_station_longitude',
-        'end station id':'end_station_id', 'end station name':'end_station_name', 'end station latitude':'end_station_latitude', 
-        'end station longitude':'end_station_longitude', 'birth year':'birth_YEAR'})
-# Убираем лишнюю колонку с индексами
-    df = df.set_index('tripduration')
-# загружаем данные в clickhouse
-    ph.to_clickhouse(df, table='hits_buffer', connection=connection)
-    
-# количество поездок в день
-def transform_data_num_of_rides():
-# Список файлов в папке
-    list_ = os.listdir(DATA) 
-    for files in list_: # итерируем все файлы в папке
+    for files in list_:
         try:
             df = pd.read_csv(DATA + files)
         except FileNotFoundError:
             print('File not found')
 
-        df['start'] = pd.to_datetime(df['starttime'], format='%Y-%m-%d %H:%M:%S') # преобразовываем в datetime
-        df['end'] = pd.to_datetime(df['stoptime'], format='%Y-%m-%d %H:%M:%S') # преобразовываем в datetime
-        df['date'] = df['start'].apply(lambda t: t.strftime('%Y-%m-%d')) # Выводим дату
+    df = df.rename(columns={'start station id' : 'start_station_id', 'start station name': 'start_station_name',
+        'start station latitude': 'start_station_latitude', 'start station longitude':'start_station_longitude',
+        'end station id':'end_station_id', 'end station name':'end_station_name', 'end station latitude':'end_station_latitude', 
+        'end station longitude':'end_station_longitude', 'birth year':'birth_YEAR'})
+    df = df.set_index('tripduration')
+
+    ph.to_clickhouse(df, table='hits_buffer', connection=connection)
+    
+# number of trips per day
+def transform_data_num_of_rides():
+
+    list_ = os.listdir(DATA) 
+    for files in list_: 
+        try:
+            df = pd.read_csv(DATA + files)
+        except FileNotFoundError:
+            print('File not found')
+
+        df['start'] = pd.to_datetime(df['starttime'], format='%Y-%m-%d %H:%M:%S')
+        df['end'] = pd.to_datetime(df['stoptime'], format='%Y-%m-%d %H:%M:%S')
+        df['date'] = df['start'].apply(lambda t: t.strftime('%Y-%m-%d')) 
         
-        df = df.groupby('date')['bikeid'].agg('count').to_frame('number_rides') # группируем по дате, количество поездок. ПРриводим к датафрейму
+        df = df.groupby('date')['bikeid'].agg('count').to_frame('number_rides') 
 
-        ph.to_clickhouse(df, table='number_rides', connection=connection) # подгружаем в ckickhouse
+        ph.to_clickhouse(df, table='number_rides', connection=connection) 
 
-        df.to_csv(DATA + 'new_data/' +  'transform_num_of_rides_per_day_' + files) # создаем файл csv
+        df.to_csv(DATA + 'new_data/' +  'transform_num_of_rides_per_day_' + files) 
 
-# средняя продолжительность поездок в день
+# average trips per day
 def transform_data_mean_ride():
     list_ = os.listdir(DATA) 
 
@@ -132,20 +106,19 @@ def transform_data_mean_ride():
         except FileNotFoundError:
             print('File not found')
         
-        df['start'] = pd.to_datetime(df['starttime'], format='%Y-%m-%d %H:%M:%S') # преобразовываем в datetime
-        df['end'] = pd.to_datetime(df['stoptime'], format='%Y-%m-%d %H:%M:%S') # преобразовываем в datetime
-        df['date'] = df['start'].apply(lambda t: t.strftime('%Y-%m-%d')) # Выводим дату
+        df['start'] = pd.to_datetime(df['starttime'], format='%Y-%m-%d %H:%M:%S')
+        df['end'] = pd.to_datetime(df['stoptime'], format='%Y-%m-%d %H:%M:%S') 
+        df['date'] = df['start'].apply(lambda t: t.strftime('%Y-%m-%d'))
         
-        df['mean'] = df['end'] - df['start'] # колонка с разностью окончания поедки и начала поездки
-        df['mean'] = df["mean"].dt.total_seconds() # находим продолжительность поездки
-        mean_ride = df.groupby('date')['mean'].agg('mean').to_frame('mean') # группируем по дате среднюю продолжительность поездки
+        df['mean'] = df['end'] - df['start'] 
+        df['mean'] = df["mean"].dt.total_seconds() 
+        mean_ride = df.groupby('date')['mean'].agg('mean').to_frame('mean') 
 
-        ph.to_clickhouse(mean_ride, table='mean_ride', connection=connection) # подгружаем в ckickhouse
+        ph.to_clickhouse(mean_ride, table='mean_ride', connection=connection) 
 
-        mean_ride.to_csv(DATA + 'new_data/' +  'transform_mean_ride_per_day_'+  files)  # создаем файл csv    
+        mean_ride.to_csv(DATA + 'new_data/' +  'transform_mean_ride_per_day_'+  files) 
 
-
-# распределение поездок пользователей, разбитых по категории «gender»  
+# num of rides for «gender» category
 def transform_data_gender_rides():
     list_ = os.listdir(DATA) 
 
@@ -155,29 +128,29 @@ def transform_data_gender_rides():
         except FileNotFoundError:
             print('File not found')
             
-        df['date'] = pd.to_datetime(df['starttime'], format='%Y-%m-%d %H:%M:%S') # преобразовываем в datetime
-        df['date'] = df['date'].dt.date # колонку date приводим к формату yyyy--mm--dd
-        gender = df.groupby(['gender', 'date'])['tripduration'].agg('count') # группируем по gender и date количество поездок
+        df['date'] = pd.to_datetime(df['starttime'], format='%Y-%m-%d %H:%M:%S') 
+        df['date'] = df['date'].dt.date 
+        gender = df.groupby(['gender', 'date'])['tripduration'].agg('count') 
 
-        gender = gender.to_frame('numbers').reset_index() # приводим к фрейму, убираем индексы
+        gender = gender.to_frame('numbers').reset_index() 
         gender = gender.set_index('date') 
 
-        ph.to_clickhouse(gender, table='gender', connection=connection) # подгружаем в ckickhouse
+        ph.to_clickhouse(gender, table='gender', connection=connection) 
         
-        gender.to_csv(DATA + 'new_data/' +  'transform_gender_values_' + files) # создаем файл csv   
+        gender.to_csv(DATA + 'new_data/' +  'transform_gender_values_' + files)  
 
 
-# Загружаем отчеты в новый бакет
+# Load reports to S3 bucket
 def upload_new_files_to_bucket():
     s3 = boto3.client('s3', aws_access_key_id=ACCSESS_KEY, aws_secret_access_key=SECRET_KEY) 
     list_ = os.listdir(DATA + 'new_data/') 
     for file in list_:
         s3.upload_file(
-        Filename= (DATA + 'new_data/' +   file), # путь откуда загружаем
-        Bucket=new_bucket_name, # название бакета
-        Key = file) # сам файл
+        Filename= (DATA + 'new_data/' +   file), 
+        Bucket=new_bucket_name, 
+        Key = file) 
 
-# создаем новый бакет, если он не существует
+# create new bucket if not exist
 def create_buckets_if_not_exist():
     try:
         s3 = boto3.resource('s3', aws_access_key_id=ACCSESS_KEY, aws_secret_access_key=SECRET_KEY)
@@ -186,13 +159,13 @@ def create_buckets_if_not_exist():
     except:
         print('Buckets exist')
 
-# Удаляем преобразованные и загруженные файлы с пк в конце
+# remove files
 def remove_files_from_os():
     list_ = os.listdir(DATA) 
     list_2 = os.listdir(DATA + 'new_data/') 
-    for file in list_: # удаляем из корневой папки
+    for file in list_: 
         try:
-            os.remove(DATA + file) # удаляем из вложенной папки
+            os.remove(DATA + file) 
         except:
             continue
     for file in list_2:
@@ -201,9 +174,9 @@ def remove_files_from_os():
         except:
             continue
 
-# В качестве примерв работы с SQL запросами 
+# number of trips by year of birth in the first 5 days of the month
 def example_select():
-    # Находим количество поездок по году рождения за первые 5 дней месяца
+    
     query = """ SELECT  birth_YEAR, toDate(starttime) as new_date, COUNT(tripduration)
     from RIDES.rides_to_new_york rtny
     group by birth_YEAR, new_date
@@ -213,12 +186,9 @@ def example_select():
 
     new_df = ph.read_clickhouse(query, index='tripduration', connection=connection)
     new_df = new_df.set_index('birth_YEAR')
+    new_df.to_csv(DATA + 'new_data/' +  'example_select.csv') 
 
-    new_df.to_csv(DATA + 'new_data/' +  'example_select.csv') # сохраняем в csv файл
-
-# Проверка существования файлов
-# Находим список файлов в папке, если список не пуст возвращаем функции трансформации
-# Если список пуст возвращаем функцию выводящую информацию об отсутсвии файлов
+# if files not exist
 def to_transform(**context):
     files = os.listdir(DATA) 
 
@@ -227,16 +197,16 @@ def to_transform(**context):
 
     return 'no_files'
 
-# при отсутсвии файлов    
+   
 def files_not_exist():
     print('Do not have any files')
 
 
 with DAG ("pipline_csv", default_args=default_args, template_searchpath= DATA, schedule_interval='@daily') as dag:
-    check_download = PythonOperator(task_id='download', python_callable= check_new_files_from_bucket) # отслеживает файлы в бакете
-    transform1 = PythonOperator(task_id='trans_1', python_callable=transform_data_num_of_rides) # трнсформация
-    transform2 = PythonOperator(task_id='trans_2', python_callable=transform_data_mean_ride) # трнсформация
-    transform3 = PythonOperator(task_id='trans_3', python_callable=transform_data_gender_rides) # трнсформация
+    check_download = PythonOperator(task_id='download', python_callable= check_new_files_from_bucket) 
+    transform1 = PythonOperator(task_id='trans_1', python_callable=transform_data_num_of_rides) 
+    transform2 = PythonOperator(task_id='trans_2', python_callable=transform_data_mean_ride) 
+    transform3 = PythonOperator(task_id='trans_3', python_callable=transform_data_gender_rides) 
     create_buckets = PythonOperator(task_id='create_buk', python_callable=create_buckets_if_not_exist) 
     upload = PythonOperator(task_id='upload_to_buk', python_callable=upload_new_files_to_bucket)
     remove = PythonOperator(task_id='rem_files', python_callable=remove_files_from_os)
@@ -245,9 +215,7 @@ with DAG ("pipline_csv", default_args=default_args, template_searchpath= DATA, s
     big_file = PythonOperator(task_id='load_big_file', python_callable=load_big_file)
     example = PythonOperator(task_id='example', python_callable=example_select)
 
-
-   
-# подробнее в схеме файла README
+# more details in the README file schema
     check_download >> to_trans  
     to_trans >> big_file >> [transform2, transform3, transform1] >> example >> create_buckets >> upload >> remove
     to_trans >> not_f

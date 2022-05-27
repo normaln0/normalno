@@ -113,7 +113,6 @@ ch_server - сервер Clickhouse
 ![s3_bucket](s3_bucket.JPG)
 
 
-
 ## Краткое описание отчетов в папке example:
 
     example_select.csv:
