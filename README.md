@@ -17,7 +17,7 @@
 За основу взят docker-compose puckel/docker-airflow. 
 
 Сборка docker-compose:
-Postgres - база Postgres для хранения метаданных;
+Postgres - база Postgres для хранения метаданных;/n
 webserver - графический интерфейс (порт 8080);
 flower - это веб-инструмент для мониторинга и администрирования кластеров Celery;
 scheduler - планировщик;
